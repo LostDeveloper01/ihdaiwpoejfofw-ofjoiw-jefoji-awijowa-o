@@ -2,14 +2,14 @@ const express = require('express');
 const app = express();
 const server = require('http').createServer(app);
 const io = require('socket.io')(server);
-const PORT = 3000;
+// Use Render's port or fallback to 3000 locally
+const PORT = process.env.PORT || 3000;
 
 app.use(express.static('public'));
 
 const players = {};
 const bullets = [];
 
-// More obstacles scattered randomly (feel free to adjust positions & sizes)
 const obstacles = [
   { x: 400, y: 300, r: 40 },
   { x: 200, y: 150, r: 30 },
@@ -19,18 +19,16 @@ const obstacles = [
   { x: 500, y: 100, r: 20 }
 ];
 
-const inputs = {}; // store player inputs
+const inputs = {};
 
-// Helper: random spawn inside map with some margin
 function getRandomSpawn() {
   return {
-    x: Math.random() * 700 + 50,  // x between 50 and 750
-    y: Math.random() * 400 + 50   // y between 50 and 450
+    x: Math.random() * 700 + 50,
+    y: Math.random() * 400 + 50
   };
 }
 
 io.on('connection', socket => {
-  // Spawn player randomly
   const spawn = getRandomSpawn();
   players[socket.id] = {
     x: spawn.x,
@@ -96,17 +94,15 @@ setInterval(() => {
       let nextX = p.x + dx;
       let nextY = p.y + dy;
 
-      // Obstacle collision
       for (const o of obstacles) {
         const dist = Math.hypot(o.x - nextX, o.y - nextY);
-        if (dist < o.r + 15) { // 15 is player radius
+        if (dist < o.r + 15) {
           const angle = Math.atan2(nextY - o.y, nextX - o.x);
           nextX = o.x + Math.cos(angle) * (o.r + 15);
           nextY = o.y + Math.sin(angle) * (o.r + 15);
         }
       }
 
-      // Boundaries adjusted for 800x500 map size
       p.x = Math.max(0, Math.min(800, nextX));
       p.y = Math.max(0, Math.min(500, nextY));
     }
@@ -115,25 +111,21 @@ setInterval(() => {
     p.name = input.name || "Player";
   }
 
-  // Move bullets and handle collisions
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx;
     b.y += b.vy;
 
-    // Remove if offscreen according to 800x500 bounds
     if (b.x < 0 || b.x > 800 || b.y < 0 || b.y > 500) {
       bullets.splice(i, 1);
       continue;
     }
 
-    // Collision with players
     for (const id in players) {
       const p = players[id];
       if (id !== b.owner && Math.hypot(p.x - b.x, p.y - b.y) < 15) {
         p.hp -= 25;
         if (p.hp <= 0) {
-          // Respawn randomly on death
           const spawn = getRandomSpawn();
           p.hp = 100;
           p.x = spawn.x;
@@ -144,7 +136,6 @@ setInterval(() => {
       }
     }
 
-    // Collision with obstacles
     for (const o of obstacles) {
       if (Math.hypot(o.x - b.x, o.y - b.y) < o.r) {
         bullets.splice(i, 1);
@@ -161,4 +152,6 @@ setInterval(() => {
 
 }, 1000 / 30);
 
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
